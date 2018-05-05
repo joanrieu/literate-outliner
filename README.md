@@ -24,10 +24,10 @@ What do we need to create an item?
 
 An item never lives on its own, except the first one at the root of the outline.
 
-```js
-command(
+```ts
+Reducer.define(
     /Item (.+) is a new outline/,
-    item_id => {
+    ({ item_id }) => {
         assert(!Item.exists(item_id))
         Item.create(item_id)
         assert(Item.exists(item_id))
@@ -37,10 +37,10 @@ command(
 
 Most of the time, an item is near other items.
 
-```js
-command(
+```ts
+Reducer.define(
     /Item (.+) is inside item (.+) at position (.+)/,
-    (new_item_id, parent_item_id, position) => {
+    ({ new_item_id, parent_item_id, position }) => {
         assert(Item.exists(parent_item_id) && !Item.exists(new_item_id))
         Item.create(new_item_id)
         Item.update(parent_item_id, parent_item => ({
@@ -50,9 +50,36 @@ command(
                 [position]: new_item_id
             }
         }))
-        assert(Item.exists(existing_item_id) && Item.exists(new_item_id))
+        assert(Item.exists(parent_item_id) && Item.contains(parent_item_id, new_item_id) && Item.exists(new_item_id))
     }
 )
 ```
 
 We now have our basis covered, since we can define a hierarchy with only theses facts.
+
+To make this code work, we need a few utilities.
+
+First, utilities related to the items.
+
+```ts
+type Id = string
+interface Item { id: Id, subitems: { [position: string]: Id } }
+namespace Item {
+    const items: { [id: string]: Item } = {}
+    export function exists(id: Id) { return id in items }
+    export function create(id: Id) { items[id] = { id, subitems: {} } }
+    export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
+    export function contains(parent_id: Id, child_id: Id) { return child_id in items[parent_id].subitems }
+}
+```
+
+Second, utilities related to the definition of the functions.
+
+```ts
+interface Input { [key: string]: string }
+type Reducer = (input: Input) => void
+namespace Reducer {
+    const reducers: Map<RegExp, Reducer> = new Map()
+    export function define(regex: RegExp, reducer: Reducer) { reducers.set(regex, reducer) }
+}
+```
