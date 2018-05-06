@@ -41,7 +41,8 @@ Most of the time, an item is near other items.
 Reducer.define(
     /Item (.+) is inside item (.+) at position (.+)/,
     ({ new_item_id, parent_item_id, position }) => {
-        assert(Item.exists(parent_item_id) && !Item.exists(new_item_id))
+        assert(Item.exists(parent_item_id))
+        assert(!Item.exists(new_item_id))
         Item.create(new_item_id)
         Item.update(parent_item_id, parent_item => ({
             ...parent_item,
@@ -50,7 +51,8 @@ Reducer.define(
                 [position]: new_item_id
             }
         }))
-        assert(Item.exists(parent_item_id) && Item.contains(parent_item_id, new_item_id) && Item.exists(new_item_id))
+        assert(Item.exists(new_item_id))
+        assert(new_item_id in Item.get(parent_item_id).subitems)
     }
 )
 ```
@@ -63,13 +65,17 @@ First, utilities related to the items.
 
 ```ts
 type Id = string
-interface Item { id: Id, subitems: { [position: string]: Id } }
+interface Item {
+    id: Id,
+    subitems: { [position: string]: Id },
+    title: string
+}
 namespace Item {
     const items: { [id: string]: Item } = {}
     export function exists(id: Id) { return id in items }
-    export function create(id: Id) { items[id] = { id, subitems: {} } }
+    export function create(id: Id) { items[id] = { id, subitems: {}, title: "" } }
+    export function get(id: Id) { return items[id] }
     export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
-    export function contains(parent_id: Id, child_id: Id) { return child_id in items[parent_id].subitems }
 }
 ```
 
@@ -82,4 +88,24 @@ namespace Reducer {
     const reducers: Map<RegExp, Reducer> = new Map()
     export function define(regex: RegExp, reducer: Reducer) { reducers.set(regex, reducer) }
 }
+```
+
+### Changing the title of an item
+
+The main feature of an outliner is the ability to edit any item's title.
+
+```ts
+Reducer.define(
+    /Item (.+)'s title is (".+")/,
+    ({ item_id, encoded_title }) => {
+        assert(Item.exists(item_id))
+        const title = JSON.parse(encoded_title)
+        assert(typeof title === "string")
+        Item.update(item_id, item => ({
+            ...item,
+            title
+        }))
+        assert(Item.get(item_id).title === title)
+    }
+)
 ```
