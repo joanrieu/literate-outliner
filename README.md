@@ -47,6 +47,7 @@ namespace Item {
 We would like to implement changes to the model not by acessing it directly, but instead by implementing fact handlers, akin to event handlers.
 
 ```ts
+import assert = require("assert")
 interface Input { [key: string]: string }
 type Reducer = (input: Input) => void
 namespace Reducer {
