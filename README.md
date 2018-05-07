@@ -14,9 +14,48 @@ Let's rewrite this specification with that angle in mind:
 - an *item* is a title, a note, and ordered subitems ;
 - an *outline* is an item.
 
+```ts
+type Id = string
+interface Item {
+    id: Id,
+    subitems: { [position: string]: Id },
+    title: string,
+    note: string
+}
+```
+
 ## The bare minimum
 
-Let's start our adventure by focusing on the concept of an *item*. What can you do with an item? Is CRUD enough? We'll see.
+Let's start our adventure by focusing on the concept of an *item*.
+
+### CRUD
+
+What can you do with an item? Let's start by implementing some CRUD-style functions for the item collection.
+
+```ts
+namespace Item {
+    const items: { [id: string]: Item } = {}
+    export function exists(id: Id) { return id in items }
+    export function create(id: Id) { items[id] = { id, subitems: {}, title: "", note: "" } }
+    export function get(id: Id) { return items[id] }
+    export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
+}
+```
+
+### Handling changes
+
+We would like to implement changes to the model not by acessing it directly, but instead by implementing fact handlers, akin to event handlers.
+
+```ts
+interface Input { [key: string]: string }
+type Reducer = (input: Input) => void
+namespace Reducer {
+    const reducers: Map<RegExp, Reducer> = new Map()
+    export function define(regex: RegExp, reducer: Reducer) { reducers.set(regex, reducer) }
+}
+```
+
+Usually, events are sentences written in the past tense, but it made more sense to the author to use the present tense in this writing, which is why we'll call them facts instead of events.
 
 ### Creating an item
 
@@ -58,38 +97,6 @@ Reducer.define(
 ```
 
 We now have our basis covered, since we can define a hierarchy with only theses facts.
-
-To make this code work, we need a few utilities.
-
-First, utilities related to the items.
-
-```ts
-type Id = string
-interface Item {
-    id: Id,
-    subitems: { [position: string]: Id },
-    title: string,
-    note: string
-}
-namespace Item {
-    const items: { [id: string]: Item } = {}
-    export function exists(id: Id) { return id in items }
-    export function create(id: Id) { items[id] = { id, subitems: {}, title: "", note: "" } }
-    export function get(id: Id) { return items[id] }
-    export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
-}
-```
-
-Second, utilities related to the definition of the functions.
-
-```ts
-interface Input { [key: string]: string }
-type Reducer = (input: Input) => void
-namespace Reducer {
-    const reducers: Map<RegExp, Reducer> = new Map()
-    export function define(regex: RegExp, reducer: Reducer) { reducers.set(regex, reducer) }
-}
-```
 
 ### Changing the title of an item
 
