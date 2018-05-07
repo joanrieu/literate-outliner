@@ -68,12 +68,13 @@ type Id = string
 interface Item {
     id: Id,
     subitems: { [position: string]: Id },
-    title: string
+    title: string,
+    note: string
 }
 namespace Item {
     const items: { [id: string]: Item } = {}
     export function exists(id: Id) { return id in items }
-    export function create(id: Id) { items[id] = { id, subitems: {}, title: "" } }
+    export function create(id: Id) { items[id] = { id, subitems: {}, title: "", note: "" } }
     export function get(id: Id) { return items[id] }
     export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
 }
@@ -92,7 +93,7 @@ namespace Reducer {
 
 ### Changing the title of an item
 
-The main feature of an outliner is the ability to edit any item's title.
+The main feature of an outliner is the ability to edit any item's title. The title is restricted to one line of text.
 
 ```ts
 Reducer.define(
@@ -101,11 +102,32 @@ Reducer.define(
         assert(Item.exists(item_id))
         const title = JSON.parse(encoded_title)
         assert(typeof title === "string")
+        assert(title.indexOf("\n") === -1)
         Item.update(item_id, item => ({
             ...item,
             title
         }))
         assert(Item.get(item_id).title === title)
+    }
+)
+```
+
+### Changing the note of an item
+
+The logic for the note associated with an item is exactly the same, except for the one-line restriction which is lifted.
+
+```ts
+Reducer.define(
+    /Item (.+)'s note is (".+")/,
+    ({ item_id, encoded_note }) => {
+        assert(Item.exists(item_id))
+        const note = JSON.parse(encoded_note)
+        assert(typeof note === "string")
+        Item.update(item_id, item => ({
+            ...item,
+            note
+        }))
+        assert(Item.get(item_id).note === note)
     }
 )
 ```
