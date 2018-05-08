@@ -18,6 +18,7 @@ Let's rewrite this specification with that angle in mind:
 type Id = string
 interface Item {
     id: Id,
+    parent_id: Id,
     subitems: { [position: string]: Id },
     title: string,
     note: string
@@ -39,6 +40,7 @@ namespace Item {
     export function create(id: Id) { items[id] = { id, subitems: {}, title: "", note: "" } }
     export function get(id: Id) { return items[id] }
     export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
+    export function del(id: Id) { delete items[id] }
 }
 ```
 
@@ -139,3 +141,50 @@ Reducer.define(
     }
 )
 ```
+
+### Deleting items
+
+Finally, to complete the CRUD operations, we need the ability to delete an item.
+
+```ts
+Reducer.define(
+    /Outline (.+) was deleted/,
+    ({ item_id, parent_item_id }) => {
+        assert(Item.exists(item_id))
+        assert(!Item.get(item_id).parent_id)
+        Item.del(item_id)
+        assert(!Item.exists(item_id))
+    }
+)
+```
+
+
+```ts
+Reducer.define(
+    /Item (.+) was deleted from (.+)/,
+    ({ item_id, parent_item_id }) => {
+        assert(Item.exists(item_id))
+        assert(Item.get(item_id).parent_id === parent_item_id)
+        assert(Item.exists(parent_item_id))
+        Item.update(parent_item_id, item => {
+            const subitems = { ...item.subitems }
+            for (const [ position, id ] of Object.entries(subitems))
+                if (id === item_id)
+                    delete subitems[position]
+            return {
+                ...item,
+                subitems
+            }
+        })
+        Item.del(item_id)
+        assert(!Object.values(Item.get(parent_item_id).subitems).includes(item_id))
+        assert(!Item.exists(item_id))
+    }
+)
+```
+
+NB: we will need to do some garbage collection for subitems of deleted items.
+
+## Standard features
+
+A few functions are missing to really be able to call our tool an outliner, such as moving items around.
