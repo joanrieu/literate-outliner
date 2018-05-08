@@ -37,7 +37,7 @@ What can you do with an item? Let's start by implementing some CRUD-style functi
 namespace Item {
     const items: { [id: string]: Item } = {}
     export function exists(id: Id) { return id in items }
-    export function create(id: Id) { items[id] = { id, subitems: {}, title: "", note: "" } }
+    export function create(id: Id, parent_id?: Id) { items[id] = { id, parent_id, subitems: {}, title: "", note: "" } }
     export function get(id: Id) { return items[id] }
     export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
     export function del(id: Id) { delete items[id] }
@@ -85,7 +85,7 @@ Reducer.define(
     ({ new_item_id, parent_item_id, position }) => {
         assert(Item.exists(parent_item_id))
         assert(!Item.exists(new_item_id))
-        Item.create(new_item_id)
+        Item.create(new_item_id, parent_item_id)
         Item.update(parent_item_id, parent_item => ({
             ...parent_item,
             subitems: {
