@@ -68,7 +68,7 @@ An item never lives on its own, except the first one at the root of the outline.
 
 ```ts
 Reducer.define(
-    /Item (.+) is a new outline/,
+    /Outline (.+) was created/,
     ({ item_id }) => {
         assert(!Item.exists(item_id))
         Item.create(item_id)
@@ -81,7 +81,7 @@ Most of the time, an item is near other items.
 
 ```ts
 Reducer.define(
-    /Item (.+) is inside item (.+) at position (.+)/,
+    /Item (.+) was created inside item (.+) at position (.+)/,
     ({ new_item_id, parent_item_id, position }) => {
         assert(Item.exists(parent_item_id))
         assert(!Item.exists(new_item_id))
@@ -107,7 +107,7 @@ The main feature of an outliner is the ability to edit any item's title. The tit
 
 ```ts
 Reducer.define(
-    /Item (.+)'s title is (".+")/,
+    /Item (.+)'s title was changed to (".+")/,
     ({ item_id, encoded_title }) => {
         assert(Item.exists(item_id))
         const title = JSON.parse(encoded_title)
@@ -128,7 +128,7 @@ The logic for the note associated with an item is exactly the same, except for t
 
 ```ts
 Reducer.define(
-    /Item (.+)'s note is (".+")/,
+    /Item (.+)'s note was changed to (".+")/,
     ({ item_id, encoded_note }) => {
         assert(Item.exists(item_id))
         const note = JSON.parse(encoded_note)
