@@ -50,8 +50,7 @@ We would like to implement changes to the model not by acessing it directly, but
 
 ```ts
 import assert = require("assert")
-interface Input { [key: string]: string }
-type Reducer = (input: Input) => void
+type Reducer = (input: string[]) => void
 namespace Reducer {
     const reducers: Map<RegExp, Reducer> = new Map()
     export function define(regex: RegExp, reducer: Reducer) { reducers.set(regex, reducer) }
@@ -69,7 +68,7 @@ An item never lives on its own, except the first one at the root of the outline.
 ```ts
 Reducer.define(
     /Outline (.+) was created/,
-    ({ item_id }) => {
+    ([ item_id ]) => {
         assert(!Item.exists(item_id))
         Item.create(item_id)
         assert(Item.exists(item_id))
@@ -82,7 +81,7 @@ Most of the time, an item is near other items.
 ```ts
 Reducer.define(
     /Item (.+) was created inside item (.+) at position (.+)/,
-    ({ new_item_id, parent_item_id, position }) => {
+    ([ new_item_id, parent_item_id, position ]) => {
         assert(Item.exists(parent_item_id))
         assert(!Item.exists(new_item_id))
         Item.create(new_item_id, parent_item_id)
@@ -108,7 +107,7 @@ The main feature of an outliner is the ability to edit any item's title. The tit
 ```ts
 Reducer.define(
     /Item (.+)'s title was changed to (".+")/,
-    ({ item_id, encoded_title }) => {
+    ([ item_id, encoded_title ]) => {
         assert(Item.exists(item_id))
         const title = JSON.parse(encoded_title)
         assert(typeof title === "string")
@@ -129,7 +128,7 @@ The logic for the note associated with an item is exactly the same, except for t
 ```ts
 Reducer.define(
     /Item (.+)'s note was changed to (".+")/,
-    ({ item_id, encoded_note }) => {
+    ([ item_id, encoded_note ]) => {
         assert(Item.exists(item_id))
         const note = JSON.parse(encoded_note)
         assert(typeof note === "string")
@@ -149,7 +148,7 @@ Finally, to complete the CRUD operations, we need the ability to delete an item.
 ```ts
 Reducer.define(
     /Outline (.+) was deleted/,
-    ({ item_id, parent_item_id }) => {
+    ([ item_id, parent_item_id ]) => {
         assert(Item.exists(item_id))
         assert(!Item.get(item_id).parent_id)
         Item.del(item_id)
@@ -162,7 +161,7 @@ Reducer.define(
 ```ts
 Reducer.define(
     /Item (.+) was deleted from (.+)/,
-    ({ item_id, parent_item_id }) => {
+    ([ item_id, parent_item_id ]) => {
         assert(Item.exists(item_id))
         assert(Item.get(item_id).parent_id === parent_item_id)
         assert(Item.exists(parent_item_id))
