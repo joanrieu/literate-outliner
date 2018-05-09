@@ -160,12 +160,12 @@ Reducer.define(
 
 ```ts
 Reducer.define(
-    /Item (.+) was deleted from (.+)/,
-    ([ item_id, parent_item_id ]) => {
+    /Item (.+) was deleted/,
+    ([ item_id ]) => {
         assert(Item.exists(item_id))
-        assert(Item.get(item_id).parent_id === parent_item_id)
-        assert(Item.exists(parent_item_id))
-        Item.update(parent_item_id, item => {
+        const parent_id = Item.get(item_id).parent_id
+        assert(Item.exists(parent_id))
+        Item.update(parent_id, item => {
             const subitems = { ...item.subitems }
             for (const [ position, id ] of Object.entries(subitems))
                 if (id === item_id)
@@ -176,7 +176,7 @@ Reducer.define(
             }
         })
         Item.del(item_id)
-        assert(!Object.values(Item.get(parent_item_id).subitems).includes(item_id))
+        assert(!Object.values(Item.get(parent_id).subitems).includes(item_id))
         assert(!Item.exists(item_id))
     }
 )
