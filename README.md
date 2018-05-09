@@ -184,6 +184,41 @@ Reducer.define(
 
 NB: we will need to do some garbage collection for subitems of deleted items.
 
-## Standard features
+### Moving items around
 
-A few functions are missing to really be able to call our tool an outliner, such as moving items around.
+To really be able to call our tool an outliner, we need one last function: the ability to move items around.
+
+```ts
+Reducer.define(
+    /Item (.+) was moved to position (.+) inside (.+)/,
+    ([ item_id, position, new_parent_id ]) => {
+        assert(Item.exists(item_id))
+        assert(Item.exists(new_parent_id))
+        const old_parent_id = Item.get(item_id).parent_id
+        assert(Item.exists(old_parent_id))
+        Item.update(item_id, item => ({
+            ...item,
+            parent_id: new_parent_id
+        }))
+        Item.update(new_parent_id, item => ({
+            ...item,
+            subitems: {
+                ...item.subitems,
+                [position]: item_id
+            }
+        }))
+        Item.update(old_parent_id, item => {
+            const subitems = { ...item.subitems }
+            for (const [ position, id ] of Object.entries(subitems))
+                if (id === item_id)
+                    delete subitems[position]
+            return {
+                ...item,
+                subitems
+            }
+        })
+        assert(!Object.values(Item.get(old_parent_id).subitems).includes(item_id))
+        assert(Object.values(Item.get(new_parent_id).subitems).includes(item_id))
+    }
+)
+```
