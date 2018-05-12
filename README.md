@@ -19,7 +19,7 @@ type Id = string
 interface Item {
     id: Id,
     parent_id: Id,
-    subitems: { [position: string]: Id },
+    subitems: Id[],
     title: string,
     note: string
 }
@@ -37,7 +37,7 @@ What can you do with an item? Let's start by implementing some CRUD-style functi
 namespace Item {
     const items: { [id: string]: Item } = {}
     export function exists(id: Id) { return id in items }
-    export function create(id: Id, parent_id?: Id) { items[id] = { id, parent_id, subitems: {}, title: "", note: "" } }
+    export function create(id: Id, parent_id?: Id) { items[id] = { id, parent_id, subitems: [], title: "", note: "" } }
     export function get(id: Id) { return items[id] }
     export function update(id: Id, patch: (item: Item) => Item) { items[id] = patch(items[id]) }
     export function del(id: Id) { delete items[id] }
@@ -81,16 +81,20 @@ Most of the time, an item is near other items.
 ```ts
 Reducer.define(
     /Item (.+) was created inside item (.+) at position (.+)/,
-    ([ new_item_id, parent_item_id, position ]) => {
+    ([ new_item_id, parent_item_id, position_str ]) => {
         assert(Item.exists(parent_item_id))
         assert(!Item.exists(new_item_id))
+        const position = Number.parseInt(position_str)
+        assert(position.toString() === position_str)
+        assert(!isNaN(position))
         Item.create(new_item_id, parent_item_id)
         Item.update(parent_item_id, parent_item => ({
             ...parent_item,
-            subitems: {
-                ...parent_item.subitems,
-                [position]: new_item_id
-            }
+            subitems: [
+                ...parent_item.subitems.slice(0, position),
+                new_item_id,
+                ...parent_item.subitems.slice(position)
+            ]
         }))
         assert(Item.exists(new_item_id))
         assert(new_item_id in Item.get(parent_item_id).subitems)
@@ -166,23 +170,19 @@ Reducer.define(
         const parent_id = Item.get(item_id).parent_id
         assert(Item.exists(parent_id))
         Item.update(parent_id, item => {
-            const subitems = { ...item.subitems }
-            for (const [ position, id ] of Object.entries(subitems))
-                if (id === item_id)
-                    delete subitems[position]
             return {
                 ...item,
-                subitems
+                subitems: item.subitems.filter(id => id !== item_id)
             }
         })
         Item.del(item_id)
-        assert(!Object.values(Item.get(parent_id).subitems).includes(item_id))
+        assert(!Item.get(parent_id).subitems.includes(item_id))
         assert(!Item.exists(item_id))
     }
 )
 ```
 
-NB: we will need to do some garbage collection for subitems of deleted items.
+TODO: we will need to do some garbage collection for subitems of deleted items.
 
 ### Moving items around
 
@@ -190,35 +190,35 @@ To really be able to call our tool an outliner, we need one last function: the a
 
 ```ts
 Reducer.define(
-    /Item (.+) was moved to position (.+) inside (.+)/,
-    ([ item_id, position, new_parent_id ]) => {
+    /Item (.+) was moved inside item (.+) at position (.+)/,
+    ([ item_id, new_parent_id, position_str ]) => {
         assert(Item.exists(item_id))
         assert(Item.exists(new_parent_id))
         const old_parent_id = Item.get(item_id).parent_id
         assert(Item.exists(old_parent_id))
+        const position = Number.parseInt(position_str)
+        assert(position.toString() === position_str)
+        assert(!isNaN(position))
         Item.update(item_id, item => ({
             ...item,
             parent_id: new_parent_id
         }))
-        Item.update(new_parent_id, item => ({
-            ...item,
-            subitems: {
-                ...item.subitems,
-                [position]: item_id
-            }
-        }))
-        Item.update(old_parent_id, item => {
-            const subitems = { ...item.subitems }
-            for (const [ position, id ] of Object.entries(subitems))
-                if (id === item_id)
-                    delete subitems[position]
+        Item.update(old_parent_id, old_parent_item => {
             return {
-                ...item,
-                subitems
+                ...old_parent_item,
+                subitems: old_parent_item.subitems.filter(id => id !== item_id)
             }
         })
-        assert(!Object.values(Item.get(old_parent_id).subitems).includes(item_id))
-        assert(Object.values(Item.get(new_parent_id).subitems).includes(item_id))
+        Item.update(new_parent_id, new_parent_item => ({
+            ...new_parent_item,
+            subitems: [
+                ...new_parent_item.subitems.slice(0, position),
+                item_id,
+                ...new_parent_item.subitems.slice(position)
+            ]
+        }))
+        assert(!Item.get(old_parent_id).subitems.includes(item_id))
+        assert(Item.get(new_parent_id).subitems.includes(item_id))
     }
 )
 ```
